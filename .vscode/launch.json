@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Debug xserver-auto-renew.main",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "xserver-auto-renew.main",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Python: pytest",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
+}
