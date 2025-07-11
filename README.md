@@ -32,15 +32,6 @@ pip install -r requirements.txt
 3. Set up environment variables:
    Create a `.env` file in the root directory:
 
-```env
-ID_VPS=your_vps_id_here
-```
-
-<img src="image/README/1752250288684.png" alt="image" style="width: 50%;">
-
-4. Export browser cookies:
-   Export your browser cookies for `xserver.ne.jp` and save them as `cookies.json` in the root directory.
-
 ## Configuration
 
 ### Environment Variables
@@ -48,6 +39,12 @@ ID_VPS=your_vps_id_here
 Create a `.env` file with the following variables:
 
 - `ID_VPS`: Your VPS ID from Xserver (required)
+
+```env
+ID_VPS=your_vps_id_here
+```
+
+<img src="image/README/1752250288684.png" alt="image" style="width: 50%;">
 
 ### Cookie Setup
 
@@ -73,6 +70,17 @@ Example `cookies.json` structure:
     "value": "xxxxxxx"
   }
 ]
+```
+
+### File Structure
+
+```filetree
+xserver-auto-renew/
+├── xserver-auto-renew/
+│   └── ...
+├── .env                 # Environment variables
+├── cookies.json        # Browser cookies
+└── ...
 ```
 
 ## Usage
