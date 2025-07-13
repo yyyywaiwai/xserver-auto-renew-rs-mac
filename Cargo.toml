@@ -2,6 +2,10 @@
 name = "xrenew"
 version = "0.1.2"
 edition = "2024"
+description = "free VPS auto renew for Xserver"
+readme = "README.md"
+repository = "https://github.com/h-sumiya/xserver-auto-renew-rs"
+license = "MIT"
 
 [dependencies]
 bincode = "2.0.1"

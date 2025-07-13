@@ -1,5 +1,4 @@
 """
-Create by ChatGPT
 cargo_tag.py - Cargo.tomlのversionからgitタグ(v{version})を付与してリモートへプッシュするスクリプト
 
 使い方:
