@@ -4,31 +4,43 @@ use url::Url;
 
 #[derive(Serialize, Debug)]
 pub struct Field {
-    name: String,
-    r#type: String,
-    value: Option<String>,
+    pub name: String,
+    pub r#type: String,
+    pub value: Option<String>,
 }
 
 #[derive(Serialize, Debug)]
 pub struct Form {
-    action: Option<String>,
-    method: Option<String>,
-    fields: Vec<Field>,
+    pub action: Option<String>,
+    pub method: Option<String>,
+    pub fields: Vec<Field>,
 }
 
 pub fn extract_forms(html: &str, base_url: Option<&Url>) -> Vec<Form> {
     let doc = Html::parse_document(html);
     let form_selector = Selector::parse("form").unwrap();
     let input_selector = Selector::parse("input, textarea, select").unwrap();
+    let button_selector = Selector::parse("button, input[type='submit']").unwrap();
 
     doc.select(&form_selector)
         .map(|form_el| {
-            let action_attr = form_el.value().attr("action").map(|a| {
-                base_url
-                    .and_then(|b| b.join(a).ok())
-                    .map(|u| u.to_string())
-                    .unwrap_or_else(|| a.to_string())
-            });
+            let formaction_attr = form_el
+                .select(&button_selector)
+                .find_map(|btn| btn.value().attr("formaction"))
+                .or_else(|| {
+                    form_el
+                        .select(&input_selector)
+                        .find_map(|inp| inp.value().attr("formaction"))
+                });
+
+            let action_attr = formaction_attr
+                .or_else(|| form_el.value().attr("action"))
+                .map(|a| {
+                    base_url
+                        .and_then(|b| b.join(a).ok())
+                        .map(|u| u.to_string())
+                        .unwrap_or_else(|| a.to_string())
+                });
 
             let method_attr = form_el
                 .value()
@@ -84,4 +96,14 @@ pub fn classify_field(field: &Field) -> FieldType {
     }
 
     FieldType::Other
+}
+
+pub fn get_mailaddress(html: &str) -> Option<String> {
+    let doc = Html::parse_document(html);
+    let selector = Selector::parse("#mailaddress").unwrap();
+    if let Some(el) = doc.select(&selector).next() {
+        el.text().next().map(|s| s.trim().to_string())
+    } else {
+        None
+    }
 }
