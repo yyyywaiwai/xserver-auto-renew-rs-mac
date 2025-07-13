@@ -1,0 +1,33 @@
+use std::fs::{OpenOptions, read_to_string};
+use std::io::Write;
+use chrono::{DateTime, Local};
+
+const LOG_PATH: &str = "data/run.log";
+
+pub fn log_message(msg: &str) {
+    let now: DateTime<Local> = Local::now();
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(LOG_PATH)
+        .expect("Failed to open log file");
+    writeln!(file, "{} {}", now.to_rfc3339(), msg).expect("Failed to write log");
+}
+
+pub fn read_logs() -> Vec<(DateTime<Local>, String)> {
+    if let Ok(content) = read_to_string(LOG_PATH) {
+        content
+            .lines()
+            .filter_map(|line| {
+                let mut parts = line.splitn(2, ' ');
+                let ts = parts.next()?;
+                let msg = parts.next()?.to_string();
+                DateTime::parse_from_rfc3339(ts)
+                    .ok()
+                    .map(|dt| (dt.with_timezone(&Local), msg))
+            })
+            .collect()
+    } else {
+        Vec::new()
+    }
+}
