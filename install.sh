@@ -28,4 +28,4 @@ curl -sSfL "$url" | tar -xz -C "$tmpdir"
 install -Dm755 "$tmpdir/xrenew" "$HOME/.local/bin/xrenew" || sudo install -Dm755 "$tmpdir/xrenew" /usr/local/bin/xrenew
 rm -rf "$tmpdir"
 
-echo "xrenew installed! まず 'xrenew login' \n次に 'xrenew {定期実行を有効化}' を実行してください。"
+echo "xrenew installed! まず 'xrenew login' \n次に 'xrenew enable' を実行してください。"
