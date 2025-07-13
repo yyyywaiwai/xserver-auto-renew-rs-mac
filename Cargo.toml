@@ -1,6 +1,6 @@
 [package]
 name = "xrenew"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 description = "free VPS auto renew for Xserver"
 readme = "README.md"
