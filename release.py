@@ -3,11 +3,6 @@ cargo_tag.py - Cargo.tomlのversionからgitタグ(v{version})を付与してリ
 
 使い方:
     python cargo_tag.py --path . --remote origin
-
-前提:
-    - gitがインストール済みで、作業ディレクトリがgitリポジトリであること
-    - Python3.11以降では標準のtomllibを使用
-      それ以前のバージョンでは `pip install toml` が必要
 """
 
 from __future__ import annotations
@@ -17,11 +12,7 @@ import pathlib
 import subprocess
 import sys
 
-# Python 3.11 以降では tomllib を標準で利用
-try:
-    import tomllib as toml  # type: ignore
-except ModuleNotFoundError:  # Python 3.10 以前
-    import toml  # type: ignore
+import tomllib as toml
 
 
 def run(cmd: list[str]) -> str:
