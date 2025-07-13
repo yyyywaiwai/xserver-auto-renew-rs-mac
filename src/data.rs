@@ -18,6 +18,7 @@ pub struct Data {
     account: Account,
     ua: String,
     cookie: Option<String>,
+    webhook: Option<String>,
 }
 
 const CONF: Configuration = standard();
@@ -61,10 +62,12 @@ impl OptionData {
     }
 
     pub fn save_account(&mut self, account: Account) {
+        let webhook = self.0.as_ref().and_then(|d| d.webhook.clone());
         self.0 = Some(Data {
             account,
             ua: spoof_ua().to_string(),
             cookie: None,
+            webhook,
         });
         self.save();
     }
@@ -74,6 +77,16 @@ impl OptionData {
             data.cookie = Some(cookie);
         } else {
             panic!("No data to save cookie to");
+        }
+        self.save();
+    }
+
+    pub fn save_webhook(&mut self, url: Option<String>) {
+        if let Some(ref mut data) = self.0 {
+            data.webhook = url;
+        } else {
+            println!("No account configured. Run 'xrenew login' first.");
+            return;
         }
         self.save();
     }
@@ -98,5 +111,9 @@ impl Data {
 
     pub fn get_cookie(&self) -> Option<String> {
         self.cookie.clone()
+    }
+
+    pub fn get_webhook(&self) -> Option<String> {
+        self.webhook.clone()
     }
 }
