@@ -37,6 +37,9 @@ pub static DATA: LazyLock<Mutex<OptionData>> = LazyLock::new(|| {
 
 impl OptionData {
     fn save(&self) {
+        if let Some(parent) = std::path::Path::new(SAVE_PATH).parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
         if let Some(ref data) = self.0 {
             let mut writer = Vec::new();
             bincode::encode_into_std_write(data, &mut writer, CONF).expect("Failed to encode data");

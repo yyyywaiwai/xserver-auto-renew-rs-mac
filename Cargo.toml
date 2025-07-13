@@ -15,3 +15,4 @@ tokio = { version = "1.46.1", features = ["full"] }
 ua_generator = "0.5.17"
 url = "2.5.4"
 bincode = "2.0.1"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
