@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# simple colors for a slightly fancier output
+GREEN="\033[0;32m"
+BOLD="\033[1m"
+RESET="\033[0m"
+
 repo="h-sumiya/xserver-auto-renew-rs"
 version="${VERSION:-latest}"
 
@@ -20,12 +25,17 @@ if [ "$version" = "latest" ]; then
   version=$(curl -sSfL "https://api.github.com/repos/$repo/releases/latest" | grep -Po '"tag_name":\s*"\K[^"]+')
 fi
 
+echo -e "${BOLD}Installing xrenew ${version} for ${target}...${RESET}"
+
 tmpdir=$(mktemp -d)
 url="https://github.com/$repo/releases/download/$version/xrenew-${target}.tar.gz"
-echo "Downloading $url"
+echo -e "${BOLD}Downloading${RESET} $url"
 curl -sSfL "$url" | tar -xz -C "$tmpdir"
 
 install -Dm755 "$tmpdir/xrenew" "$HOME/.local/bin/xrenew" || sudo install -Dm755 "$tmpdir/xrenew" /usr/local/bin/xrenew
 rm -rf "$tmpdir"
 
-echo "xrenew installed! まず 'xrenew login' \n次に 'xrenew enable' を実行してください。"
+hash -r 2>/dev/null || true
+
+printf "${GREEN}${BOLD}xrenew installed!${RESET}\n"
+echo -e "まず ${BOLD}xrenew login${RESET}\n次に ${BOLD}xrenew enable${RESET} を実行してください。"
