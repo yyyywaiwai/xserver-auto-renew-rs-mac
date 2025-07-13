@@ -1,5 +1,6 @@
 use std::{
     io::BufReader,
+    path::PathBuf,
     sync::{LazyLock, Mutex},
 };
 
@@ -7,6 +8,7 @@ use bincode::{
     Decode, Encode,
     config::{Configuration, standard},
 };
+use directories::ProjectDirs;
 use ua_generator::ua::spoof_ua;
 
 use crate::account::Account;
@@ -19,14 +21,23 @@ pub struct Data {
 }
 
 const CONF: Configuration = standard();
-const SAVE_PATH: &str = "data/data.bin";
+
+static SAVE_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    if let Some(proj) = ProjectDirs::from("", "", "xrenew") {
+        let dir = proj.data_dir();
+        std::fs::create_dir_all(dir).ok();
+        dir.join("data.bin")
+    } else {
+        PathBuf::from("xrenew_data.bin")
+    }
+});
 
 pub struct OptionData(Option<Data>);
 
 pub static DATA: LazyLock<Mutex<OptionData>> = LazyLock::new(|| {
-    Mutex::new(OptionData(if std::fs::metadata(SAVE_PATH).is_ok() {
+    Mutex::new(OptionData(if std::fs::metadata(&*SAVE_PATH).is_ok() {
         let reader =
-            BufReader::new(std::fs::File::open(SAVE_PATH).expect("Failed to open data file"));
+            BufReader::new(std::fs::File::open(&*SAVE_PATH).expect("Failed to open data file"));
         let data: Data =
             bincode::decode_from_reader(reader, CONF).expect("Failed to decode data file");
         Some(data)
@@ -37,15 +48,15 @@ pub static DATA: LazyLock<Mutex<OptionData>> = LazyLock::new(|| {
 
 impl OptionData {
     fn save(&self) {
-        if let Some(parent) = std::path::Path::new(SAVE_PATH).parent() {
+        if let Some(parent) = SAVE_PATH.parent() {
             std::fs::create_dir_all(parent).ok();
         }
         if let Some(ref data) = self.0 {
             let mut writer = Vec::new();
             bincode::encode_into_std_write(data, &mut writer, CONF).expect("Failed to encode data");
-            std::fs::write(SAVE_PATH, writer).expect("Failed to write data file");
+            std::fs::write(&*SAVE_PATH, writer).expect("Failed to write data file");
         } else {
-            std::fs::remove_file(SAVE_PATH).ok(); // Remove file if no data
+            std::fs::remove_file(&*SAVE_PATH).ok(); // Remove file if no data
         }
     }
 
