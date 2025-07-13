@@ -1,21 +1,33 @@
+use chrono::{DateTime, Local};
 use std::fs::{OpenOptions, read_to_string};
 use std::io::Write;
-use chrono::{DateTime, Local};
+use std::path::PathBuf;
+use std::sync::LazyLock;
 
-const LOG_PATH: &str = "data/run.log";
+use directories::ProjectDirs;
+
+static LOG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    if let Some(proj) = ProjectDirs::from("", "", "xrenew") {
+        let dir = proj.data_dir();
+        std::fs::create_dir_all(dir).ok();
+        dir.join("run.log")
+    } else {
+        PathBuf::from("xrenew_run.log")
+    }
+});
 
 pub fn log_message(msg: &str) {
     let now: DateTime<Local> = Local::now();
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(LOG_PATH)
+        .open(&*LOG_PATH)
         .expect("Failed to open log file");
     writeln!(file, "{} {}", now.to_rfc3339(), msg).expect("Failed to write log");
 }
 
 pub fn read_logs() -> Vec<(DateTime<Local>, String)> {
-    if let Ok(content) = read_to_string(LOG_PATH) {
+    if let Ok(content) = read_to_string(&*LOG_PATH) {
         content
             .lines()
             .filter_map(|line| {
