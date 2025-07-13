@@ -3,4 +3,4 @@ Description=Xserver VPS auto extension
 
 [Service]
 Type=oneshot
-ExecStart={{EXEC_PATH}} extend
+ExecStart={{EXEC_PATH}} extend --auto

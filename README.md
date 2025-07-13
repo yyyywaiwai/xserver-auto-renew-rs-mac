@@ -20,11 +20,13 @@ curl -sSf https://raw.githubusercontent.com/h-sumiya/xserver-auto-renew-rs/main/
 2. `xrenew extend`
    - 手動で延長処理を行います。保存済みの認証情報を利用して自動でログインします。
 3. `xrenew enable`
-   - systemd タイマーを登録し、毎日自動で延長処理を行います。
-4. `xrenew disable`
+   - systemd タイマーを登録し、12時間おきに自動で延長処理を試みます。
+4. `xrenew webhook <URL>`
+   - 実行結果を Discord へ通知する Webhook URL を設定します。
+5. `xrenew disable`
    - 上記タイマーを無効化します。
-5. `xrenew status`
-   - 保存されているアカウント情報と実行ログを表示します。
+6. `xrenew status`
+   - 保存されているアカウント情報と実行ログ、Webhook設定、タイマー状態を表示します。
 
 > [!IMPORTANT]
 > 初回実行時に二段階認証が求められる場合があります。

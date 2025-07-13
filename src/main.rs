@@ -13,6 +13,7 @@ mod form;
 mod logger;
 mod login;
 mod server;
+mod webhook;
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -26,13 +27,19 @@ enum Commands {
     /// Interactive login and extend VPS
     Login,
     /// Extend VPS without interaction
-    Extend,
+    Extend {
+        /// Run from systemd timer
+        #[arg(long)]
+        auto: bool,
+    },
     /// Show stored account and run logs
     Status,
     /// Enable daily automatic extension
     Enable,
     /// Disable automatic extension
     Disable,
+    /// Set Discord webhook URL
+    Webhook { url: String },
 }
 
 #[tokio::main]
@@ -40,13 +47,14 @@ async fn main() {
     let cli = Cli::parse();
     match cli.command {
         Commands::Login => login_flow().await,
-        Commands::Extend => extend_flow().await,
+        Commands::Extend { auto } => extend_flow(auto).await,
         Commands::Status => {
             show_status();
             return;
         }
         Commands::Enable => enable_auto(),
         Commands::Disable => disable_auto(),
+        Commands::Webhook { url } => set_webhook(url),
     }
 }
 
@@ -93,19 +101,39 @@ async fn login_flow() {
     }
 
     let client = create_client().await;
-    if let Err(e) = do_login_and_extend(&client, true).await {
-        logger::log_message(&format!("FAILURE {}", e));
+    match do_login_and_extend(&client, true).await {
+        Ok(msg) => {
+            logger::log_message(&format!("SUCCESS {}", msg));
+            webhook::send(&format!("Extend successful: {}", msg)).await;
+        }
+        Err(e) => {
+            logger::log_message(&format!("FAILURE {}", e));
+            webhook::send(&format!("Extend failed: {}", e)).await;
+        }
     }
 }
 
-async fn extend_flow() {
+async fn extend_flow(auto: bool) {
+    if auto && !should_run() {
+        let msg = "Skip: last success within 23h";
+        logger::log_message(msg);
+        webhook::send(msg).await;
+        return;
+    }
     let client = create_client().await;
-    if let Err(e) = do_login_and_extend(&client, false).await {
-        logger::log_message(&format!("FAILURE {}", e));
+    match do_login_and_extend(&client, false).await {
+        Ok(msg) => {
+            logger::log_message(&format!("SUCCESS {}", msg));
+            webhook::send(&format!("Extend successful: {}", msg)).await;
+        }
+        Err(e) => {
+            logger::log_message(&format!("FAILURE {}", e));
+            webhook::send(&format!("Extend failed: {}", e)).await;
+        }
     }
 }
 
-async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Result<(), String> {
+async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Result<String, String> {
     let form = client
         .login_page()
         .await
@@ -172,8 +200,7 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
     {
         ExtendResponse::Success(msg) => {
             println!("Extend successful: {}", msg);
-            logger::log_message(&format!("SUCCESS {}", msg));
-            Ok(())
+            Ok(msg)
         }
         ExtendResponse::Failure(msg) => {
             println!("Extend failed: {}", msg);
@@ -185,10 +212,23 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
 fn show_status() {
     let data = DATA.lock().unwrap();
     if data.is_some() {
-        println!("Account: {}", data.unwrap().get_account().email);
+        let d = data.unwrap();
+        println!("Account: {}", d.get_account().email);
+        if d.get_webhook().is_some() {
+            println!("Webhook: set");
+        }
     } else {
         println!("No account configured");
     }
+    let timer_enabled = std::process::Command::new("systemctl")
+        .args(["--user", "is-enabled", "xrenew.timer"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    println!(
+        "Auto update: {}",
+        if timer_enabled { "enabled" } else { "disabled" }
+    );
     let logs = logger::read_logs();
     if let Some((ts, msg)) = logs.last() {
         println!("Last run: {} - {}", ts.format("%Y-%m-%d %H:%M:%S"), msg);
@@ -241,4 +281,27 @@ fn disable_auto() {
     std::fs::remove_file(dir.join("xrenew.service")).ok();
     std::fs::remove_file(dir.join("xrenew.timer")).ok();
     println!("Automatic extension disabled");
+}
+
+fn set_webhook(url: String) {
+    let mut data = DATA.lock().unwrap();
+    if data.is_some() {
+        data.save_webhook(Some(url));
+        println!("Webhook set");
+    } else {
+        println!("No account configured. Run 'xrenew login' first.");
+    }
+}
+
+fn should_run() -> bool {
+    if let Some((ts, _)) = logger::read_logs()
+        .iter()
+        .rev()
+        .find(|(_, m)| m.starts_with("SUCCESS"))
+    {
+        let diff = chrono::Local::now() - *ts;
+        diff.num_hours() >= 23
+    } else {
+        true
+    }
 }
