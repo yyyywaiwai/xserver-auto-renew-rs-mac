@@ -3,16 +3,16 @@ use clap::{Parser, Subcommand};
 use crate::{
     data::DATA,
     login::LoginStatus,
-    server::{get_server_id, ExtendResponse},
+    server::{ExtendResponse, get_server_id},
 };
 
 mod account;
 mod client;
 mod data;
 mod form;
+mod logger;
 mod login;
 mod server;
-mod logger;
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -108,11 +108,11 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
         let data = DATA.lock().unwrap();
         data.unwrap().get_account().clone()
     };
-    let mut login_res = client
+    let login_res = client
         .try_login(&form, &account)
         .await
         .map_err(|e| format!("login: {}", e))?;
-    let mut html = String::new();
+    let html;
     match login_res {
         LoginStatus::Success(text) => html = text,
         LoginStatus::Failure(msg) => return Err(msg),
@@ -138,7 +138,8 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
             match client
                 .two_way_auth(&form, &code)
                 .await
-                .map_err(|e| format!("two-way auth: {}", e))? {
+                .map_err(|e| format!("two-way auth: {}", e))?
+            {
                 LoginStatus::Success(text) => {
                     html = text;
                 }
@@ -161,7 +162,8 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
     match client
         .submit_extend_form(&extend_form)
         .await
-        .map_err(|e| format!("submit extend: {}", e))? {
+        .map_err(|e| format!("submit extend: {}", e))?
+    {
         ExtendResponse::Success(msg) => {
             println!("Extend successful: {}", msg);
             logger::log_message(&format!("SUCCESS {}", msg));

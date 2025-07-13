@@ -87,10 +87,8 @@ impl Client {
         let url = res.url().clone();
         let text = res.text().await?;
         let forms = extract_forms(&text, Some(&url));
-        std::fs::write("data/extend.html", &text).expect("Failed to write extend.html");
+
         for form in forms {
-            let action_url = form.action.as_ref();
-            println!("Form action: {:?}", action_url);
             if form
                 .action
                 .as_ref()
