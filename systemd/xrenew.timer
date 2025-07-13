@@ -1,0 +1,9 @@
+[Unit]
+Description=Xserver VPS auto extension timer
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
