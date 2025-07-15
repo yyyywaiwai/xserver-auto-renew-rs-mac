@@ -8,7 +8,10 @@ pub fn enable_auto() {
             return;
         }
     }
+    _enable_auto();
+}
 
+fn _enable_auto() {
     let exe = std::env::current_exe().expect("get exe path");
     let service = include_str!("../systemd/xrenew.service")
         .replace("{{EXEC_PATH}}", exe.to_str().expect("exe path to str"));
@@ -59,7 +62,7 @@ pub fn refresh_auto() {
         .unwrap_or(false);
     if enabled {
         disable_auto();
-        enable_auto();
+        _enable_auto();
         println!("Automatic extension refreshed");
     } else {
         println!("Automatic extension not configured");
