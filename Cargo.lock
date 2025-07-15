@@ -2702,6 +2702,7 @@ dependencies = [
  "cookie_store",
  "directories",
  "paste",
+ "rand 0.9.1",
  "reqwest",
  "reqwest_cookie_store",
  "scraper",
