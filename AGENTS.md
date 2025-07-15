@@ -4,7 +4,7 @@
 
 This program is a command-line tool designed to automate the process of renewing contracts for services on Xserver, a Japanese hosting provider. It handles logging in, solving CAPTCHAs, and performing the renewal actions automatically.
 
-#### **Project Structure (Key Files)**
+#### **Project Structure**
 
 TODO
 
