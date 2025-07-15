@@ -1,6 +1,8 @@
-use clap::{Parser, Subcommand};
 use std::time::Duration;
 use tokio::time::sleep;
+
+use crate::cli::{Cli, Commands};
+use clap::Parser;
 
 use crate::{
     captcha::solve_captcha,
@@ -11,13 +13,21 @@ use crate::{
 
 mod account;
 mod captcha;
+mod cli;
 mod client;
 mod data;
 mod form;
 mod logger;
 mod login;
+mod ops;
 mod server;
+mod task;
+mod update;
 mod webhook;
+
+use ops::{clear_data, set_webhook, show_status};
+use task::{disable_auto, enable_auto, should_run};
+use update::update;
 
 #[derive(Debug)]
 enum ExtendError {
@@ -34,41 +44,6 @@ impl std::fmt::Display for ExtendError {
 }
 
 impl std::error::Error for ExtendError {}
-
-#[derive(Parser)]
-#[command(author, version, about)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Interactive login and extend VPS
-    Login,
-    /// Extend VPS without interaction
-    Extend {
-        /// Run from systemd timer
-        #[arg(long)]
-        auto: bool,
-    },
-    /// Show stored account and run logs
-    Status,
-    /// Enable daily automatic extension
-    Enable,
-    /// Disable automatic extension
-    Disable,
-    /// Delete saved data
-    Clear,
-    /// Set Discord webhook URL
-    Webhook { url: String },
-    /// Update xrenew to the latest version
-    Update {
-        /// Run from systemd timer
-        #[arg(long)]
-        auto: bool,
-    },
-}
 
 #[tokio::main]
 async fn main() {
@@ -173,7 +148,11 @@ async fn do_login_and_extend_with_retry(
             Ok(msg) => return Ok(msg),
             Err(ExtendError::CaptchaFailure(_msg)) if attempts < 2 => {
                 attempts += 1;
-                println!("Captcha failed. Retrying in 60 seconds... ({}/{})", attempts + 1, 3);
+                println!(
+                    "Captcha failed. Retrying in 60 seconds... ({}/{})",
+                    attempts + 1,
+                    3
+                );
                 sleep(Duration::from_secs(60)).await;
             }
             Err(e) => return Err(e),
@@ -181,7 +160,10 @@ async fn do_login_and_extend_with_retry(
     }
 }
 
-async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Result<String, ExtendError> {
+async fn do_login_and_extend(
+    client: &client::Client,
+    interactive: bool,
+) -> Result<String, ExtendError> {
     let form = client
         .login_page()
         .await
@@ -274,167 +256,5 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
                 }
             }
         }
-    }
-}
-
-fn show_status() {
-    let data = DATA.lock().unwrap();
-    if data.is_some() {
-        let d = data.unwrap();
-        println!("Account: {}", d.get_account().email);
-        if d.get_webhook().is_some() {
-            println!("Webhook: set");
-        }
-    } else {
-        println!("No account configured");
-    }
-    let timer_enabled = std::process::Command::new("systemctl")
-        .args(["--user", "is-enabled", "xrenew.timer"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
-    println!(
-        "Auto update: {}",
-        if timer_enabled { "enabled" } else { "disabled" }
-    );
-    let logs = logger::read_logs();
-    if let Some((ts, msg)) = logs.last() {
-        println!("Last run: {} - {}", ts.format("%Y-%m-%d %H:%M:%S"), msg);
-    }
-    if let Some((ts, _)) = logs.iter().rev().find(|(_, m)| m.starts_with("SUCCESS")) {
-        println!("Last success: {}", ts.format("%Y-%m-%d %H:%M:%S"));
-    }
-}
-
-fn enable_auto() {
-    {
-        let data = DATA.lock().unwrap();
-        if !data.is_some() {
-            println!("No account configured. Run 'xrenew login' first.");
-            return;
-        }
-    }
-
-    let exe = std::env::current_exe().expect("get exe path");
-    let service = include_str!("../systemd/xrenew.service")
-        .replace("{{EXEC_PATH}}", exe.to_str().expect("exe path to str"));
-    let timer = include_str!("../systemd/xrenew.timer");
-    let dir = directories::BaseDirs::new()
-        .expect("get base dirs")
-        .config_dir()
-        .join("systemd/user");
-    std::fs::create_dir_all(&dir).expect("create systemd dir");
-    std::fs::write(dir.join("xrenew.service"), service).expect("write service");
-    std::fs::write(dir.join("xrenew.timer"), timer).expect("write timer");
-    let _ = std::process::Command::new("systemctl")
-        .args(["--user", "daemon-reload"])
-        .status();
-    let _ = std::process::Command::new("systemctl")
-        .args(["--user", "enable", "--now", "xrenew.timer"])
-        .status();
-    println!("Automatic extension enabled");
-}
-
-fn disable_auto() {
-    let dir = directories::BaseDirs::new()
-        .expect("get base dirs")
-        .config_dir()
-        .join("systemd/user");
-    let _ = std::process::Command::new("systemctl")
-        .args(["--user", "disable", "--now", "xrenew.timer"])
-        .status();
-    let _ = std::process::Command::new("systemctl")
-        .args(["--user", "stop", "xrenew.timer"])
-        .status();
-    std::fs::remove_file(dir.join("xrenew.service")).ok();
-    std::fs::remove_file(dir.join("xrenew.timer")).ok();
-    println!("Automatic extension disabled");
-}
-
-fn clear_data() {
-    let mut data = DATA.lock().unwrap();
-    if data.is_some() {
-        data.clear();
-        println!("Saved data deleted");
-    } else {
-        println!("No saved data");
-    }
-}
-
-fn set_webhook(url: String) {
-    let mut data = DATA.lock().unwrap();
-    if data.is_some() {
-        data.save_webhook(Some(url));
-        println!("Webhook set");
-    } else {
-        println!("No account configured. Run 'xrenew login' first.");
-    }
-}
-
-fn should_run() -> bool {
-    if let Some((ts, _)) = logger::read_logs()
-        .iter()
-        .rev()
-        .find(|(_, m)| m.starts_with("SUCCESS"))
-    {
-        let diff = chrono::Local::now() - *ts;
-        diff.num_hours() >= 23
-    } else {
-        true
-    }
-}
-
-async fn update(auto: bool) {
-    let current = semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-    let client = reqwest::Client::new();
-    let res = client
-        .get("https://api.github.com/repos/h-sumiya/xserver-auto-renew-rs/releases/latest")
-        .header(reqwest::header::USER_AGENT, "xrenew")
-        .send()
-        .await;
-    let Ok(resp) = res else {
-        if !auto {
-            eprintln!("Failed to check latest version");
-        }
-        return;
-    };
-    let json: serde_json::Value = match resp.json().await {
-        Ok(j) => j,
-        Err(e) => {
-            if !auto {
-                eprintln!("Failed to parse version info: {}", e);
-            }
-            return;
-        }
-    };
-    let tag = json.get("tag_name").and_then(|v| v.as_str());
-    let Some(tag) = tag else {
-        return;
-    };
-    let latest_str = tag.trim_start_matches('v');
-    let Ok(latest) = semver::Version::parse(latest_str) else {
-        return;
-    };
-    if latest > current {
-        if !auto {
-            println!("Updating from {} to {}", current, latest);
-        }
-        let cmd = format!(
-            "curl -sSf https://raw.githubusercontent.com/h-sumiya/xserver-auto-renew-rs/main/install.sh | VERSION={} bash",
-            tag
-        );
-        let status = std::process::Command::new("bash")
-            .arg("-c")
-            .arg(cmd)
-            .status();
-        if status.map(|s| s.success()).unwrap_or(false) {
-            if !auto {
-                println!("Update complete");
-            }
-        } else if !auto {
-            eprintln!("Update failed");
-        }
-    } else if !auto {
-        println!("xrenew is up to date ({}).", current);
     }
 }
