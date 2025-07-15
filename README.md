@@ -27,6 +27,8 @@ curl -sSf https://raw.githubusercontent.com/h-sumiya/xserver-auto-renew-rs/main/
    - 上記タイマーを無効化します。
 6. `xrenew status`
    - 保存されているアカウント情報と実行ログ、Webhook設定、タイマー状態を表示します。
+7. `xrenew update`
+   - 最新バージョンが公開されている場合自動でアップデートします。
 
 > [!IMPORTANT]
 > 初回実行時に二段階認証が求められる場合があります。

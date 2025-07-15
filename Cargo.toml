@@ -25,3 +25,4 @@ tokio = { version = "1.46.1", features = ["full"] }
 ua_generator = "0.5.17"
 url = "2.5.4"
 directories = "6.0.0"
+semver = "1.0"
