@@ -6,7 +6,21 @@ This program is a command-line tool designed to automate the process of renewing
 
 #### **Project Structure**
 
-TODO
+```
+src/           # Rust source code
+├── main.rs    # Application entry point
+├── cli.rs     # Command line interface definitions
+├── client/    # Logic for logging in and interacting with Xserver
+├── data/      # Local data storage and utilities
+├── external/  # CAPTCHA solver and webhook integrations
+├── logger.rs  # Simple file based logger
+├── ops.rs     # Status output and cleanup helpers
+├── task.rs    # systemd timer/service management
+└── update.rs  # Self‑update functionality
+systemd/       # Template systemd unit files
+install.sh     # Convenience installer for prebuilt binaries
+release.py     # Script for tagging and releasing
+```
 
 #### **Development Guidelines**
 
