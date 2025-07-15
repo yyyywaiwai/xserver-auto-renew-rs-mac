@@ -1,15 +1,19 @@
-use crate::{data::DATA, logger};
+use crate::{
+    data::{self, remove_all},
+    logger,
+};
 
 pub fn show_status() {
-    let data = DATA.lock().unwrap();
-    if data.is_some() {
-        let d = data.unwrap();
-        println!("Account: {}", d.get_account().email);
-        if d.get_webhook().is_some() {
-            println!("Webhook: set");
-        }
+    if let Some(account) = data::value::get_account() {
+        println!("Current account: {}", account.email);
     } else {
         println!("No account configured");
+    }
+    if let Some(webhook) = data::value::get_webhook() {
+        println!("Webhook: {}", webhook);
+    }
+    if let Some(ua) = data::value::get_ua() {
+        println!("User-Agent: {}", ua);
     }
     let timer_enabled = std::process::Command::new("systemctl")
         .args(["--user", "is-enabled", "xrenew.timer"])
@@ -30,21 +34,11 @@ pub fn show_status() {
 }
 
 pub fn clear_data() {
-    let mut data = DATA.lock().unwrap();
-    if data.is_some() {
-        data.clear();
-        println!("Saved data deleted");
-    } else {
-        println!("No saved data");
-    }
+    remove_all();
+    println!("Saved data deleted");
 }
 
-pub fn set_webhook(url: String) {
-    let mut data = DATA.lock().unwrap();
-    if data.is_some() {
-        data.save_webhook(Some(url));
-        println!("Webhook set");
-    } else {
-        println!("No account configured. Run 'xrenew login' first.");
-    }
+pub fn set_webhook(url: &String) {
+    data::value::set_webhook(url);
+    println!("Webhook set");
 }

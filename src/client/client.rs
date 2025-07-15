@@ -1,7 +1,10 @@
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use cookie_store::CookieStore;
 use reqwest_cookie_store::CookieStoreMutex;
+use ua_generator::ua::spoof_ua;
+
+use crate::data::value::{get_cookie, get_ua, set_cookie, set_ua};
 
 pub struct Client {
     cookie_store: Arc<CookieStoreMutex>,
@@ -50,4 +53,22 @@ impl Client {
             .expect("Failed to save cookie store to JSON");
         String::from_utf8(writer).expect("Failed to convert cookie store to string")
     }
+}
+
+pub static DEFAULT_CLIENT: LazyLock<Client> = LazyLock::new(|| {
+    let ua = match get_ua() {
+        Some(ua) => ua,
+        None => {
+            let ua = spoof_ua().to_string();
+            set_ua(&ua);
+            ua
+        }
+    };
+    let cookie = get_cookie();
+    create_client(ua, cookie)
+});
+
+pub fn save_default_client() {
+    let cookie = DEFAULT_CLIENT.get_cookie();
+    set_cookie(&cookie);
 }

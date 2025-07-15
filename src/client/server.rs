@@ -1,10 +1,8 @@
 use scraper::{ElementRef, Html, Selector};
 use url::Url;
 
-use crate::{
-    client::Client,
-    form::{Form, extract_forms},
-};
+use super::Client;
+use super::form::{Form, extract_forms};
 
 pub fn get_server_id(html: &str) -> Option<String> {
     let doc = Html::parse_document(html);

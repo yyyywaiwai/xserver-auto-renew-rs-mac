@@ -1,6 +1,7 @@
+use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
-use crate::server::Captcha;
+use crate::client::Captcha;
 
 const API: &str = "https://xrenew.hiro.red";
 
@@ -22,6 +23,8 @@ pub enum CaptchaError {
     InvalidSrcFormat,
     #[error("Failed to send captcha request: {0}")]
     RequestError(#[from] reqwest::Error),
+    #[error("Failed to parse captcha response: {code} - {message}")]
+    ServerError { code: StatusCode, message: String },
 }
 
 pub async fn solve_captcha(captcha: &Captcha) -> Result<i32, CaptchaError> {
@@ -38,8 +41,20 @@ pub async fn solve_captcha(captcha: &Captcha) -> Result<i32, CaptchaError> {
         .post(format!("{}/solve", API))
         .json(&request)
         .send()
-        .await?
-        .error_for_status()?;
+        .await?;
+
+    let code = res.status();
+
+    if !code.is_success() {
+        let error_text = res
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        return Err(CaptchaError::ServerError {
+            code: code,
+            message: error_text,
+        });
+    }
 
     let result = res.json::<Response>().await?;
     Ok(result.code)

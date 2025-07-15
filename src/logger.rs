@@ -6,14 +6,7 @@ use std::sync::LazyLock;
 
 use crate::data::SAVE_DIR;
 
-static LOG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    if let Some(dir) = &*SAVE_DIR {
-        std::fs::create_dir_all(&dir).ok();
-        dir.join("run.log")
-    } else {
-        PathBuf::from("xrenew_run.log")
-    }
-});
+static LOG_PATH: LazyLock<PathBuf> = LazyLock::new(|| SAVE_DIR.join("run.log"));
 
 pub fn log_message(msg: &str) {
     let now: DateTime<Local> = Local::now();

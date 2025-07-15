@@ -1,9 +1,8 @@
-use crate::data::DATA;
+use crate::data::value::get_account;
 
 pub fn enable_auto() {
     {
-        let data = DATA.lock().unwrap();
-        if !data.is_some() {
+        if get_account().is_none() {
             println!("No account configured. Run 'xrenew login' first.");
             return;
         }

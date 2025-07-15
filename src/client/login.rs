@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{
-    account::Account,
-    client::Client,
-    form::{FieldType, Form, classify_field, extract_forms, get_mailaddress},
-};
+use super::Account;
+use super::Client;
+use super::form::{FieldType, Form, classify_field, extract_forms, get_mailaddress};
 
 const LOGIN_URL: &str = "https://secure.xserver.ne.jp/xapanel/login/xvps/";
 const TOP_PAGE: &str = "https://secure.xserver.ne.jp/xapanel/xvps/index";

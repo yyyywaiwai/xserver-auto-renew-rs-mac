@@ -1,15 +1,9 @@
-use crate::data::DATA;
 use serde_json::json;
 
+use crate::data::value::get_webhook;
+
 pub async fn send(content: &str) {
-    let url = {
-        let data = DATA.lock().unwrap();
-        if data.is_some() {
-            data.unwrap().get_webhook()
-        } else {
-            None
-        }
-    };
+    let url = get_webhook();
     if let Some(url) = url {
         let client = reqwest::Client::new();
         let _ = client

@@ -1,29 +1,30 @@
 use std::time::Duration;
 use tokio::time::sleep;
 
-use crate::cli::{Cli, Commands};
+use crate::{
+    cli::{Cli, Commands},
+    client::{
+        Account, CaptchaResponse, DEFAULT_CLIENT, ExtendResponse, LoginStatus, get_server_id,
+        save_default_client,
+    },
+    data::{
+        initialize_db,
+        value::{get_account, set_account},
+    },
+    external::send_webhook,
+};
 use clap::Parser;
 
-use crate::{
-    captcha::solve_captcha,
-    data::DATA,
-    login::LoginStatus,
-    server::{CaptchaResponse, ExtendResponse, get_server_id},
-};
+use crate::external::solve_captcha;
 
-mod account;
-mod captcha;
 mod cli;
 mod client;
 mod data;
-mod form;
+mod external;
 mod logger;
-mod login;
 mod ops;
-mod server;
 mod task;
 mod update;
-mod webhook;
 
 use ops::{clear_data, set_webhook, show_status};
 use task::{disable_auto, enable_auto, should_run};
@@ -47,6 +48,7 @@ impl std::error::Error for ExtendError {}
 
 #[tokio::main]
 async fn main() {
+    initialize_db();
     let cli = Cli::parse();
     match cli.command {
         Commands::Login => login_flow().await,
@@ -58,24 +60,16 @@ async fn main() {
         Commands::Enable => enable_auto(),
         Commands::Disable => disable_auto(),
         Commands::Clear => clear_data(),
-        Commands::Webhook { url } => set_webhook(url),
+        Commands::Webhook { url } => set_webhook(&url),
         Commands::Update { auto } => update(auto).await,
     }
-}
-
-async fn create_client() -> client::Client {
-    let data = DATA.lock().expect("lock data");
-    let data = data.unwrap();
-    client::create_client(data.get_ua(), data.get_cookie())
 }
 
 async fn login_flow() {
     // handle account input/update
     {
-        let mut data = DATA.lock().expect("lock data");
-        if data.is_some() {
-            let email = data.unwrap().get_account().email.clone();
-            println!("Current account: {}", email);
+        if let Some(account) = get_account() {
+            println!("Current account: {}", account.email);
             println!("Update credentials? (y/N)");
             let mut buf = String::new();
             std::io::stdin().read_line(&mut buf).unwrap();
@@ -88,8 +82,8 @@ async fn login_flow() {
                 println!("Please enter your password:");
                 std::io::stdin().read_line(&mut buf).unwrap();
                 let password = buf.trim().to_string();
-                let acc = account::Account { email, password };
-                data.save_account(acc);
+                let acc = Account { email, password };
+                set_account(&acc);
             }
         } else {
             let mut buf = String::new();
@@ -100,20 +94,19 @@ async fn login_flow() {
             println!("Please enter your password:");
             std::io::stdin().read_line(&mut buf).unwrap();
             let password = buf.trim().to_string();
-            let acc = account::Account { email, password };
-            data.save_account(acc);
+            let acc = Account { email, password };
+            set_account(&acc);
         }
     }
 
-    let client = create_client().await;
-    match do_login_and_extend_with_retry(&client, true).await {
+    match do_login_and_extend_with_retry(&DEFAULT_CLIENT, true).await {
         Ok(msg) => {
             logger::log_message(&format!("SUCCESS {}", msg));
-            webhook::send(&format!("Extend successful: {}", msg)).await;
+            send_webhook(&format!("Extend successful: {}", msg)).await;
         }
         Err(e) => {
             logger::log_message(&format!("FAILURE {}", e));
-            webhook::send(&format!("Extend failed: {}", e)).await;
+            send_webhook(&format!("Extend failed: {}", e)).await;
         }
     }
 }
@@ -122,18 +115,18 @@ async fn extend_flow(auto: bool) {
     if auto && !should_run() {
         let msg = "Skip: last success within 23h";
         logger::log_message(msg);
-        webhook::send(msg).await;
+        send_webhook(msg).await;
         return;
     }
-    let client = create_client().await;
-    match do_login_and_extend_with_retry(&client, false).await {
+
+    match do_login_and_extend_with_retry(&DEFAULT_CLIENT, false).await {
         Ok(msg) => {
             logger::log_message(&format!("SUCCESS {}", msg));
-            webhook::send(&format!("Extend successful: {}", msg)).await;
+            send_webhook(&format!("Extend successful: {}", msg)).await;
         }
         Err(e) => {
             logger::log_message(&format!("FAILURE {}", e));
-            webhook::send(&format!("Extend failed: {}", e)).await;
+            send_webhook(&format!("Extend failed: {}", e)).await;
         }
     }
 }
@@ -146,13 +139,10 @@ async fn do_login_and_extend_with_retry(
     loop {
         match do_login_and_extend(client, interactive).await {
             Ok(msg) => return Ok(msg),
-            Err(ExtendError::CaptchaFailure(_msg)) if attempts < 2 => {
+            Err(ExtendError::CaptchaFailure(msg)) if attempts < 2 => {
+                println!("Captcha failed. ({})", msg);
                 attempts += 1;
-                println!(
-                    "Captcha failed. Retrying in 60 seconds... ({}/{})",
-                    attempts + 1,
-                    3
-                );
+                println!("Retrying in 60 seconds... ({}/{})", attempts + 1, 3);
                 sleep(Duration::from_secs(60)).await;
             }
             Err(e) => return Err(e),
@@ -168,10 +158,8 @@ async fn do_login_and_extend(
         .login_page()
         .await
         .map_err(|e| ExtendError::Other(format!("login page: {}", e)))?;
-    let account = {
-        let data = DATA.lock().unwrap();
-        data.unwrap().get_account().clone()
-    };
+    let account =
+        get_account().ok_or_else(|| ExtendError::Other("No account found".to_string()))?;
     let login_res = client
         .try_login(&form, &account)
         .await
@@ -212,11 +200,7 @@ async fn do_login_and_extend(
         }
     }
 
-    {
-        let cookie = client.get_cookie();
-        let mut data = DATA.lock().unwrap();
-        data.save_cookie(cookie);
-    }
+    save_default_client();
 
     let vps = get_server_id(&html).ok_or_else(|| ExtendError::Other("No VPS found".to_string()))?;
     let extend_form = client
