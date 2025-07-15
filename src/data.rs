@@ -104,6 +104,11 @@ impl OptionData {
         self.save();
     }
 
+    pub fn clear(&mut self) {
+        self.0 = None;
+        self.save();
+    }
+
     pub fn unwrap(&self) -> &Data {
         self.0.as_ref().expect("Data is not initialized")
     }

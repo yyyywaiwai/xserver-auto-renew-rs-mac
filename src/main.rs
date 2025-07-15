@@ -40,6 +40,8 @@ enum Commands {
     Enable,
     /// Disable automatic extension
     Disable,
+    /// Delete saved data
+    Clear,
     /// Set Discord webhook URL
     Webhook { url: String },
     /// Update xrenew to the latest version
@@ -62,6 +64,7 @@ async fn main() {
         }
         Commands::Enable => enable_auto(),
         Commands::Disable => disable_auto(),
+        Commands::Clear => clear_data(),
         Commands::Webhook { url } => set_webhook(url),
         Commands::Update { auto } => update(auto).await,
     }
@@ -312,6 +315,16 @@ fn disable_auto() {
     println!("Automatic extension disabled");
 }
 
+fn clear_data() {
+    let mut data = DATA.lock().unwrap();
+    if data.is_some() {
+        data.clear();
+        println!("Saved data deleted");
+    } else {
+        println!("No saved data");
+    }
+}
+
 fn set_webhook(url: String) {
     let mut data = DATA.lock().unwrap();
     if data.is_some() {
@@ -359,9 +372,13 @@ async fn update(auto: bool) {
         }
     };
     let tag = json.get("tag_name").and_then(|v| v.as_str());
-    let Some(tag) = tag else { return; };
+    let Some(tag) = tag else {
+        return;
+    };
     let latest_str = tag.trim_start_matches('v');
-    let Ok(latest) = semver::Version::parse(latest_str) else { return; };
+    let Ok(latest) = semver::Version::parse(latest_str) else {
+        return;
+    };
     if latest > current {
         if !auto {
             println!("Updating from {} to {}", current, latest);
