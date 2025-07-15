@@ -27,7 +27,7 @@ mod task;
 mod update;
 
 use ops::{clear_data, set_webhook, show_status};
-use task::{disable_auto, enable_auto, should_run};
+use task::{disable_auto, enable_auto, refresh_auto, should_run};
 use update::update;
 
 #[derive(Debug)]
@@ -48,8 +48,10 @@ impl std::error::Error for ExtendError {}
 
 #[tokio::main]
 async fn main() {
-    initialize_db();
     let cli = Cli::parse();
+    if !matches!(cli.command, Commands::Refresh) {
+        initialize_db();
+    }
     match cli.command {
         Commands::Login => login_flow().await,
         Commands::Extend { auto } => extend_flow(auto).await,
@@ -62,6 +64,7 @@ async fn main() {
         Commands::Clear => clear_data(),
         Commands::Webhook { url } => set_webhook(&url),
         Commands::Update { auto } => update(auto).await,
+        Commands::Refresh => refresh_auto(),
     }
 }
 

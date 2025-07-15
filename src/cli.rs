@@ -33,4 +33,6 @@ pub enum Commands {
         #[arg(long)]
         auto: bool,
     },
+    /// Reload automatic extension timer
+    Refresh,
 }
