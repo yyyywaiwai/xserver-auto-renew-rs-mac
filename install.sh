@@ -37,8 +37,14 @@ rm -rf "$tmpdir"
 
 hash -r 2>/dev/null || true
 
-# reload systemd timer if configured
-xrenew refresh || true
+if [ -x "$HOME/.local/bin/xrenew" ]; then
+  export PATH="$HOME/.local/bin:$PATH"
+  "$HOME/.local/bin/xrenew" refresh || true
+elif [ -x "/usr/local/bin/xrenew" ]; then
+  "/usr/local/bin/xrenew" refresh || true
+else
+  echo "Warning: xrenew not found in expected locations" >&2
+fi
 
 printf "${GREEN}${BOLD}xrenew installed!${RESET}\n"
 echo -e "まず ${BOLD}xrenew login${RESET}\n次に ${BOLD}xrenew enable${RESET} を実行してください。"
