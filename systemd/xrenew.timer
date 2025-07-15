@@ -2,7 +2,7 @@
 Description=Xserver VPS auto extension timer
 
 [Timer]
-OnCalendar=*-*-* 00,12:00:00
+OnCalendar=*-*-* 00/12:10:00
 Persistent=true
 
 [Install]
