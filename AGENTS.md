@@ -6,12 +6,7 @@ This program is a command-line tool designed to automate the process of renewing
 
 #### **Project Structure (Key Files)**
 
-- `src/main.rs`: The main entry point for the command-line application. It parses arguments and orchestrates the renewal process.
-- `src/client.rs`: A module responsible for handling all HTTP communications. It manages a `reqwest` client instance with a cookie store to maintain session state across requests.
-- `src/login.rs`: Contains the logic for the user login process, including handling two-factor authentication if required.
-- `src/data/`: This directory contains modules for managing the application's persistent data, such as user account credentials, webhook configurations, and other settings stored locally.
-- `src/external/`: Encapsulates logic for interacting with third-party services, such as a CAPTCHA solving service and sending notifications via webhooks.
-- `Cargo.toml`: The Rust project manifest. It defines project metadata and lists all dependencies.
+TODO
 
 #### **Development Guidelines**
 
