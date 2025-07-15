@@ -4,12 +4,11 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use directories::ProjectDirs;
+use crate::data::SAVE_DIR;
 
 static LOG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    if let Some(proj) = ProjectDirs::from("", "", "xrenew") {
-        let dir = proj.data_dir();
-        std::fs::create_dir_all(dir).ok();
+    if let Some(dir) = &*SAVE_DIR {
+        std::fs::create_dir_all(&dir).ok();
         dir.join("run.log")
     } else {
         PathBuf::from("xrenew_run.log")

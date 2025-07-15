@@ -1,0 +1,46 @@
+use serde::{Deserialize, Serialize};
+
+use crate::server::Captcha;
+
+const API: &str = "https://xrenew.hiro.red";
+
+#[derive(Debug, Serialize)]
+pub struct Request {
+    #[serde(rename = "mimeType")]
+    pub mime_type: String,
+    pub data: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Response {
+    pub code: i32,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CaptchaError {
+    #[error("invalid src format")]
+    InvalidSrcFormat,
+    #[error("Failed to send captcha request: {0}")]
+    RequestError(#[from] reqwest::Error),
+}
+
+pub async fn solve_captcha(captcha: &Captcha) -> Result<i32, CaptchaError> {
+    let client = reqwest::Client::new();
+    let request = Request {
+        mime_type: captcha
+            .mime_type()
+            .unwrap_or_else(|| "image/png".to_string()),
+        data: captcha
+            .base64_image()
+            .ok_or(CaptchaError::InvalidSrcFormat)?,
+    };
+    let res = client
+        .post(format!("{}/solve", API))
+        .json(&request)
+        .send()
+        .await?
+        .error_for_status()?;
+
+    let result = res.json::<Response>().await?;
+    Ok(result.code)
+}

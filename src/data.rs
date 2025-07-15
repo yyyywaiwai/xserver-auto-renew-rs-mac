@@ -1,6 +1,6 @@
 use std::{
     io::BufReader,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{LazyLock, Mutex},
 };
 
@@ -23,10 +23,23 @@ pub struct Data {
 
 const CONF: Configuration = standard();
 
+pub static SAVE_DIR: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
+    if cfg!(target_os = "windows") && Path::new("data").is_dir() {
+        Some(PathBuf::from("data"))
+    } else {
+        let d = ProjectDirs::from("", "", "xrenew").map(|p| p.data_dir().to_owned());
+        if let Some(d) = d {
+            std::fs::create_dir_all(&d).ok();
+            Some(d)
+        } else {
+            None
+        }
+    }
+});
+
 static SAVE_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    if let Some(proj) = ProjectDirs::from("", "", "xrenew") {
-        let dir = proj.data_dir();
-        std::fs::create_dir_all(dir).ok();
+    if let Some(dir) = &*SAVE_DIR {
+        std::fs::create_dir_all(&dir).ok();
         dir.join("data.bin")
     } else {
         PathBuf::from("xrenew_data.bin")

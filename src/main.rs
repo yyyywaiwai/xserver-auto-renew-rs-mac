@@ -1,12 +1,14 @@
 use clap::{Parser, Subcommand};
 
 use crate::{
+    captcha::solve_captcha,
     data::DATA,
     login::LoginStatus,
-    server::{ExtendResponse, get_server_id},
+    server::{CaptchaResponse, ExtendResponse, get_server_id},
 };
 
 mod account;
+mod captcha;
 mod client;
 mod data;
 mod form;
@@ -205,6 +207,26 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
         ExtendResponse::Failure(msg) => {
             println!("Extend failed: {}", msg);
             Err(msg)
+        }
+        ExtendResponse::CaptchaRequired(captcha) => {
+            println!("Captcha required (Solving...)");
+            let res = solve_captcha(&captcha)
+                .await
+                .map_err(|e| format!("Captcha solve: {}", e))?;
+            let res = client
+                .submit_captcha(&captcha, res)
+                .await
+                .map_err(|e| format!("Captcha submit: {}", e))?;
+            match res {
+                CaptchaResponse::Success(msg) => {
+                    println!("Extend successful(with captcha): {}", msg);
+                    Ok(msg)
+                }
+                CaptchaResponse::Failure(msg) => {
+                    println!("Extend failed(with captcha): {}", msg);
+                    Err(msg)
+                }
+            }
         }
     }
 }
