@@ -36,6 +36,12 @@ curl -sSf https://raw.githubusercontent.com/h-sumiya/xserver-auto-renew-rs/main/
 > 初回実行時に二段階認証が求められる場合があります。
 > そのため必ずインストール後 `enable`を実行前に `login` を実行してください。
 
+### アップデートについて
+
+> [!WARNING]
+> 初期バージョンからのアップデートにおいて、セーブデータの互換性がありません。
+> バージョン0.1.x系統からのアップデートの際に、`clear`、`disable`、`login` 、`enable` の順に再度実行していただく必要があります。
+
 ### 動作環境
 
 - Linux (x86_64 / arm64)
