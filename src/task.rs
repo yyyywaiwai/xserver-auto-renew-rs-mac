@@ -51,6 +51,21 @@ pub fn disable_auto() {
     println!("Automatic extension disabled");
 }
 
+pub fn refresh_auto() {
+    let enabled = std::process::Command::new("systemctl")
+        .args(["--user", "is-enabled", "xrenew.timer"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if enabled {
+        disable_auto();
+        enable_auto();
+        println!("Automatic extension refreshed");
+    } else {
+        println!("Automatic extension not configured");
+    }
+}
+
 pub fn should_run() -> bool {
     if let Some((ts, _)) = crate::logger::read_logs()
         .iter()

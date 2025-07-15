@@ -37,5 +37,8 @@ rm -rf "$tmpdir"
 
 hash -r 2>/dev/null || true
 
+# reload systemd timer if configured
+xrenew refresh || true
+
 printf "${GREEN}${BOLD}xrenew installed!${RESET}\n"
 echo -e "まず ${BOLD}xrenew login${RESET}\n次に ${BOLD}xrenew enable${RESET} を実行してください。"
