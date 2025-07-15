@@ -1,4 +1,6 @@
 use clap::{Parser, Subcommand};
+use std::time::Duration;
+use tokio::time::sleep;
 
 use crate::{
     captcha::solve_captcha,
@@ -16,6 +18,22 @@ mod logger;
 mod login;
 mod server;
 mod webhook;
+
+#[derive(Debug)]
+enum ExtendError {
+    CaptchaFailure(String),
+    Other(String),
+}
+
+impl std::fmt::Display for ExtendError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExtendError::CaptchaFailure(msg) | ExtendError::Other(msg) => write!(f, "{}", msg),
+        }
+    }
+}
+
+impl std::error::Error for ExtendError {}
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -113,7 +131,7 @@ async fn login_flow() {
     }
 
     let client = create_client().await;
-    match do_login_and_extend(&client, true).await {
+    match do_login_and_extend_with_retry(&client, true).await {
         Ok(msg) => {
             logger::log_message(&format!("SUCCESS {}", msg));
             webhook::send(&format!("Extend successful: {}", msg)).await;
@@ -133,7 +151,7 @@ async fn extend_flow(auto: bool) {
         return;
     }
     let client = create_client().await;
-    match do_login_and_extend(&client, false).await {
+    match do_login_and_extend_with_retry(&client, false).await {
         Ok(msg) => {
             logger::log_message(&format!("SUCCESS {}", msg));
             webhook::send(&format!("Extend successful: {}", msg)).await;
@@ -145,11 +163,29 @@ async fn extend_flow(auto: bool) {
     }
 }
 
-async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Result<String, String> {
+async fn do_login_and_extend_with_retry(
+    client: &client::Client,
+    interactive: bool,
+) -> Result<String, ExtendError> {
+    let mut attempts = 0;
+    loop {
+        match do_login_and_extend(client, interactive).await {
+            Ok(msg) => return Ok(msg),
+            Err(ExtendError::CaptchaFailure(_msg)) if attempts < 2 => {
+                attempts += 1;
+                println!("Captcha failed. Retrying in 60 seconds... ({}/{})", attempts + 1, 3);
+                sleep(Duration::from_secs(60)).await;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
+async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Result<String, ExtendError> {
     let form = client
         .login_page()
         .await
-        .map_err(|e| format!("login page: {}", e))?;
+        .map_err(|e| ExtendError::Other(format!("login page: {}", e)))?;
     let account = {
         let data = DATA.lock().unwrap();
         data.unwrap().get_account().clone()
@@ -157,14 +193,14 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
     let login_res = client
         .try_login(&form, &account)
         .await
-        .map_err(|e| format!("login: {}", e))?;
+        .map_err(|e| ExtendError::Other(format!("login: {}", e)))?;
     let html;
     match login_res {
         LoginStatus::Success(text) => html = text,
-        LoginStatus::Failure(msg) => return Err(msg),
+        LoginStatus::Failure(msg) => return Err(ExtendError::Other(msg)),
         LoginStatus::TowWayAuthRequired(form, email) => {
             if !interactive {
-                return Err("Two-way authentication required".into());
+                return Err(ExtendError::Other("Two-way authentication required".into()));
             }
             if let Some(email) = email {
                 println!("Two-way authentication required. Email: {}", email);
@@ -174,7 +210,7 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
             let form = client
                 .two_way_select_email(&form)
                 .await
-                .map_err(|e| format!("auth select: {}", e))?;
+                .map_err(|e| ExtendError::Other(format!("auth select: {}", e)))?;
             let code = {
                 let mut buf = String::new();
                 println!("Please enter the authentication code sent to your email:");
@@ -184,12 +220,12 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
             match client
                 .two_way_auth(&form, &code)
                 .await
-                .map_err(|e| format!("two-way auth: {}", e))?
+                .map_err(|e| ExtendError::Other(format!("two-way auth: {}", e)))?
             {
                 LoginStatus::Success(text) => {
                     html = text;
                 }
-                _ => return Err("Two-way authentication failed".into()),
+                _ => return Err(ExtendError::Other("Two-way authentication failed".into())),
             }
         }
     }
@@ -200,15 +236,15 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
         data.save_cookie(cookie);
     }
 
-    let vps = get_server_id(&html).ok_or_else(|| "No VPS found".to_string())?;
+    let vps = get_server_id(&html).ok_or_else(|| ExtendError::Other("No VPS found".to_string()))?;
     let extend_form = client
         .extend_vps(&vps)
         .await
-        .map_err(|e| format!("extend vps: {}", e))?;
+        .map_err(|e| ExtendError::Other(format!("extend vps: {}", e)))?;
     match client
         .submit_extend_form(&extend_form)
         .await
-        .map_err(|e| format!("submit extend: {}", e))?
+        .map_err(|e| ExtendError::Other(format!("submit extend: {}", e)))?
     {
         ExtendResponse::Success(msg) => {
             println!("Extend successful: {}", msg);
@@ -216,17 +252,17 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
         }
         ExtendResponse::Failure(msg) => {
             println!("Extend failed: {}", msg);
-            Err(msg)
+            Err(ExtendError::Other(msg))
         }
         ExtendResponse::CaptchaRequired(captcha) => {
             println!("Captcha required (Solving...)");
             let res = solve_captcha(&captcha)
                 .await
-                .map_err(|e| format!("Captcha solve: {}", e))?;
+                .map_err(|e| ExtendError::CaptchaFailure(format!("Captcha solve: {}", e)))?;
             let res = client
                 .submit_captcha(&captcha, res)
                 .await
-                .map_err(|e| format!("Captcha submit: {}", e))?;
+                .map_err(|e| ExtendError::CaptchaFailure(format!("Captcha submit: {}", e)))?;
             match res {
                 CaptchaResponse::Success(msg) => {
                     println!("Extend successful(with captcha): {}", msg);
@@ -234,7 +270,7 @@ async fn do_login_and_extend(client: &client::Client, interactive: bool) -> Resu
                 }
                 CaptchaResponse::Failure(msg) => {
                     println!("Extend failed(with captcha): {}", msg);
-                    Err(msg)
+                    Err(ExtendError::CaptchaFailure(msg))
                 }
             }
         }
