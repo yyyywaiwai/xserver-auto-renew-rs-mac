@@ -46,11 +46,11 @@ pub fn load_old_data(path: &Path) -> OldData {
     if std::fs::metadata(path).is_ok() {
         let mut reader =
             BufReader::new(std::fs::File::open(path).expect("Failed to open old data file"));
-        if let Ok(data) = bincode::decode_from_std_read::<OldDataV1, _, _>(&mut reader, CONF) {
-            return OldData::V1(data);
-        } else if let Ok(data) = bincode::decode_from_std_read::<OldDataV2, _, _>(&mut reader, CONF)
-        {
+        if let Ok(data) = bincode::decode_from_std_read::<OldDataV2, _, _>(&mut reader, CONF) {
             return OldData::V2(data);
+        } else if let Ok(data) = bincode::decode_from_std_read::<OldDataV1, _, _>(&mut reader, CONF)
+        {
+            return OldData::V1(data);
         } else {
             eprintln!("Failed to decode old data");
             return OldData::None;
