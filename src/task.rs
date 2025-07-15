@@ -1,4 +1,5 @@
 use crate::data::value::get_account;
+use rand::Rng;
 
 pub fn enable_auto() {
     {
@@ -11,7 +12,13 @@ pub fn enable_auto() {
     let exe = std::env::current_exe().expect("get exe path");
     let service = include_str!("../systemd/xrenew.service")
         .replace("{{EXEC_PATH}}", exe.to_str().expect("exe path to str"));
-    let timer = include_str!("../systemd/xrenew.timer");
+
+    let mut rng = rand::rng();
+    let hour: u8 = rng.random_range(0..12);
+    let minute: u8 = rng.random_range(0..60);
+    let timer = include_str!("../systemd/xrenew.timer")
+        .replace("{{HOUR}}", &format!("{:02}", hour))
+        .replace("{{MINUTE}}", &format!("{:02}", minute));
     let dir = directories::BaseDirs::new()
         .expect("get base dirs")
         .config_dir()
