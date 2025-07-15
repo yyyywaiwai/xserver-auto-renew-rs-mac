@@ -1,5 +1,8 @@
 # xrenew
 
+> [!TIP]
+> キャプチャ対応済み
+
 xrenew は Xserver VPS の無料契約を自動で延長するためのコマンドラインツールです。Rust 製で軽量に動作します。
 
 > [!NOTE]
