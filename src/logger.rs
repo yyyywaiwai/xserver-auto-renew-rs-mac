@@ -5,17 +5,21 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use crate::data::SAVE_DIR;
+use crate::external::send_log;
 
 static LOG_PATH: LazyLock<PathBuf> = LazyLock::new(|| SAVE_DIR.join("run.log"));
 
-pub fn log_message(msg: &str) {
+pub async fn log_message(msg: &str) {
     let now: DateTime<Local> = Local::now();
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
         .open(&*LOG_PATH)
         .expect("Failed to open log file");
-    writeln!(file, "{} {}", now.to_rfc3339(), msg).expect("Failed to write log");
+    let mut log = format!("{} {}\n", now.to_rfc3339(), msg);
+    file.write_all(log.as_bytes()).expect("Failed to write log");
+    log.pop();
+    send_log(&log).await.ok();
 }
 
 pub fn read_logs() -> Vec<(DateTime<Local>, String)> {

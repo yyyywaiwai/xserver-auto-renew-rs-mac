@@ -104,11 +104,11 @@ async fn login_flow() {
 
     match do_login_and_extend_with_retry(&DEFAULT_CLIENT, true).await {
         Ok(msg) => {
-            logger::log_message(&format!("SUCCESS {}", msg));
+            logger::log_message(&format!("SUCCESS {}", msg)).await;
             send_webhook(&format!("Extend successful: {}", msg)).await;
         }
         Err(e) => {
-            logger::log_message(&format!("FAILURE {}", e));
+            logger::log_message(&format!("FAILURE {}", e)).await;
             send_webhook(&format!("Extend failed: {}", e)).await;
         }
     }
@@ -117,18 +117,18 @@ async fn login_flow() {
 async fn extend_flow(auto: bool) {
     if auto && !should_run() {
         let msg = "Skip: last success within 23h";
-        logger::log_message(msg);
+        logger::log_message(msg).await;
         send_webhook(msg).await;
         return;
     }
 
     match do_login_and_extend_with_retry(&DEFAULT_CLIENT, false).await {
         Ok(msg) => {
-            logger::log_message(&format!("SUCCESS {}", msg));
+            logger::log_message(&format!("SUCCESS {}", msg)).await;
             send_webhook(&format!("Extend successful: {}", msg)).await;
         }
         Err(e) => {
-            logger::log_message(&format!("FAILURE {}", e));
+            logger::log_message(&format!("FAILURE {}", e)).await;
             send_webhook(&format!("Extend failed: {}", e)).await;
         }
     }
