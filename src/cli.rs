@@ -25,6 +25,8 @@ pub enum Commands {
     Disable,
     /// Delete saved data
     Clear,
+    /// Set TwoCaptcha API key
+    Captcha { key: String },
     /// Set Discord webhook URL
     Webhook { url: String },
     /// Update xrenew to the latest version
