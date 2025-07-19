@@ -48,15 +48,7 @@ xrenew login
 > [\!IMPORTANT]
 > 初回ログイン時には **二段階認証** を求められる場合があります。必ずこの`login`コマンドを最初に実行し、認証を済ませてください。
 
-### 2\. (オプション) TwoCaptcha API キーの設定
-
-Cloudflare の Turnstile チャレンジを自動解決したい場合は、TwoCaptcha の API キーを設定します。
-
-```bash
-xrenew captcha <YOUR_API_KEY>
-```
-
-### 3\. 自動延長の有効化
+### 2\. 自動延長の有効化
 
 次に、`enable` コマンドを実行して、契約の自動延長を有効化します。これにより、12 時間ごとに自動で延長処理が実行されるようになります。
 
@@ -64,7 +56,7 @@ xrenew captcha <YOUR_API_KEY>
 xrenew enable
 ```
 
-### 4\. (オプション) Discord 通知設定
+### 3\. (オプション) Discord 通知設定
 
 更新結果を Discord で受け取りたい場合は、以下のコマンドで Webhook URL を設定してください。
 
@@ -83,7 +75,7 @@ xrenew webhook <YOUR_DISCORD_WEBHOOK_URL>
 | `xrenew enable`        | systemd タイマーを登録し、契約の自動延長を有効化します。                 |
 | `xrenew disable`       | 自動延長のタイマーを無効化します。                                       |
 | `xrenew status`        | アカウント情報、Webhook 設定、タイマーの状態、実行ログなどを表示します。 |
-| `xrenew captcha <KEY>` | TwoCaptcha の API キーを設定します。 |
+| `xrenew captcha <KEY>` | TwoCaptcha の API キーを設定します。                                     |
 | `xrenew webhook <URL>` | 実行結果を通知する Discord Webhook URL を設定・更新します。              |
 | `xrenew update`        | `xrenew`を最新バージョンにアップデートします。                           |
 | `xrenew clear`         | 保存されているアカウント情報やログなど、すべてのデータを削除します。     |

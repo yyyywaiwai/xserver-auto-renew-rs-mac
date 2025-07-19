@@ -88,15 +88,6 @@ async fn login_flow() {
                 let password = buf.trim().to_string();
                 let acc = Account { email, password };
                 set_account(&acc);
-                if get_two_captcha_key().is_none() {
-                    buf.clear();
-                    println!("Please enter your TwoCaptcha API key:");
-                    std::io::stdin().read_line(&mut buf).unwrap();
-                    let key = buf.trim().to_string();
-                    if !key.is_empty() {
-                        set_two_captcha_key(&key);
-                    }
-                }
             }
         } else {
             let mut buf = String::new();
@@ -109,15 +100,16 @@ async fn login_flow() {
             let password = buf.trim().to_string();
             let acc = Account { email, password };
             set_account(&acc);
-            if get_two_captcha_key().is_none() {
-                buf.clear();
-                println!("Please enter your TwoCaptcha API key:");
-                std::io::stdin().read_line(&mut buf).unwrap();
-                let key = buf.trim().to_string();
-                if !key.is_empty() {
-                    set_two_captcha_key(&key);
-                }
-            }
+        }
+    }
+
+    if get_two_captcha_key().is_none() {
+        let mut buf = String::new();
+        println!("Please enter your TwoCaptcha API key:");
+        std::io::stdin().read_line(&mut buf).unwrap();
+        let key = buf.trim().to_string();
+        if !key.is_empty() {
+            set_two_captcha_key(&key);
         }
     }
 
