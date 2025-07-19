@@ -9,7 +9,7 @@ use crate::{
     },
     data::{
         initialize_db,
-        value::{get_account, set_account},
+        value::{get_account, get_two_captcha_key, set_account},
     },
     external::{send_webhook, two_captcha_solve},
 };
@@ -26,7 +26,7 @@ mod ops;
 mod task;
 mod update;
 
-use ops::{clear_data, set_webhook, show_status};
+use ops::{clear_data, set_two_captcha_key, set_webhook, show_status};
 use task::{disable_auto, enable_auto, refresh_auto, should_run};
 use update::update;
 
@@ -62,6 +62,7 @@ async fn main() {
         Commands::Enable => enable_auto(),
         Commands::Disable => disable_auto(),
         Commands::Clear => clear_data(),
+        Commands::Captcha { key } => set_two_captcha_key(&key),
         Commands::Webhook { url } => set_webhook(&url),
         Commands::Update { auto } => update(auto).await,
         Commands::Refresh => refresh_auto(),
@@ -87,6 +88,15 @@ async fn login_flow() {
                 let password = buf.trim().to_string();
                 let acc = Account { email, password };
                 set_account(&acc);
+                if get_two_captcha_key().is_none() {
+                    buf.clear();
+                    println!("Please enter your TwoCaptcha API key:");
+                    std::io::stdin().read_line(&mut buf).unwrap();
+                    let key = buf.trim().to_string();
+                    if !key.is_empty() {
+                        set_two_captcha_key(&key);
+                    }
+                }
             }
         } else {
             let mut buf = String::new();
@@ -99,6 +109,15 @@ async fn login_flow() {
             let password = buf.trim().to_string();
             let acc = Account { email, password };
             set_account(&acc);
+            if get_two_captcha_key().is_none() {
+                buf.clear();
+                println!("Please enter your TwoCaptcha API key:");
+                std::io::stdin().read_line(&mut buf).unwrap();
+                let key = buf.trim().to_string();
+                if !key.is_empty() {
+                    set_two_captcha_key(&key);
+                }
+            }
         }
     }
 

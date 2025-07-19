@@ -42,3 +42,8 @@ pub fn set_webhook(url: &String) {
     data::value::set_webhook(url);
     println!("Webhook set");
 }
+
+pub fn set_two_captcha_key(key: &String) {
+    data::value::set_two_captcha_key(key);
+    println!("TwoCaptcha API key set");
+}
