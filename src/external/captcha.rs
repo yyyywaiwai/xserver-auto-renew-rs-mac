@@ -1,7 +1,8 @@
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
+use twocaptcha::{TwoCaptcha, TwoCaptchaConfig};
 
-use crate::client::Captcha;
+use crate::{client::Captcha, data::value::get_two_captcha_key};
 
 const API: &str = "https://xrenew.hiro.red";
 
@@ -25,6 +26,12 @@ pub enum CaptchaError {
     RequestError(#[from] reqwest::Error),
     #[error("Failed to parse captcha response: {code} - {message}")]
     ServerError { code: StatusCode, message: String },
+    #[error("Api key not set")]
+    ApiKeyNotSet,
+    #[error("TwoCaptcha error: {0}")]
+    TwoCaptchaError(#[from] twocaptcha::TwoCaptchaError),
+    #[error("Captcha solving failed: {0}")]
+    CaptchaFailure(String),
 }
 
 pub async fn solve_captcha(captcha: &Captcha) -> Result<i32, CaptchaError> {
@@ -58,4 +65,24 @@ pub async fn solve_captcha(captcha: &Captcha) -> Result<i32, CaptchaError> {
 
     let result = res.json::<Response>().await?;
     Ok(result.code)
+}
+
+pub async fn two_captcha_solve(captcha: &Captcha) -> Result<String, CaptchaError> {
+    let solver = TwoCaptcha::new(
+        get_two_captcha_key().ok_or(CaptchaError::ApiKeyNotSet)?,
+        TwoCaptchaConfig::default(),
+    );
+    let res = solver
+        .turnstile(
+            captcha
+                .cloudflare_challenge()
+                .ok_or(CaptchaError::InvalidSrcFormat)?,
+            captcha.url.as_str(),
+            None,
+        )
+        .await?;
+
+    return res.code.ok_or(CaptchaError::CaptchaFailure(
+        "TwoCaptcha did not return a code".to_string(),
+    ));
 }

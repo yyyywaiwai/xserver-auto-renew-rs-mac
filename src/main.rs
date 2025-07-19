@@ -11,7 +11,7 @@ use crate::{
         initialize_db,
         value::{get_account, set_account},
     },
-    external::send_webhook,
+    external::{send_webhook, two_captcha_solve},
 };
 use clap::Parser;
 
@@ -225,11 +225,24 @@ async fn do_login_and_extend(
         }
         ExtendResponse::CaptchaRequired(captcha) => {
             println!("Captcha required (Solving...)");
-            let res = solve_captcha(&captcha)
-                .await
-                .map_err(|e| ExtendError::CaptchaFailure(format!("Captcha solve: {}", e)))?;
+            let turnstile_response =
+                if captcha.cloudflare_challenge().is_some() {
+                    Some(two_captcha_solve(&captcha).await.map_err(|e| {
+                        ExtendError::CaptchaFailure(format!("TwoCaptcha solve: {}", e))
+                    })?)
+                } else {
+                    None
+                };
+            let code =
+                if captcha.has_image() {
+                    Some(solve_captcha(&captcha).await.map_err(|e| {
+                        ExtendError::CaptchaFailure(format!("Captcha solve: {}", e))
+                    })?)
+                } else {
+                    None
+                };
             let res = client
-                .submit_captcha(&captcha, res)
+                .submit_captcha(&captcha, code, turnstile_response)
                 .await
                 .map_err(|e| ExtendError::CaptchaFailure(format!("Captcha submit: {}", e)))?;
             match res {

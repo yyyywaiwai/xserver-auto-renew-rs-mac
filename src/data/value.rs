@@ -33,3 +33,4 @@ db_accessors!(account, b"account_v1", crate::client::Account);
 db_accessors!(ua, b"user_agent_v1", String);
 db_accessors!(cookie, b"cookie_v1", String);
 db_accessors!(webhook, b"webhook_v1", String);
+db_accessors!(two_captcha_key, b"two_captcha_key", String);

@@ -65,8 +65,7 @@ pub fn get_message(html: &str) -> Option<String> {
     None
 }
 
-pub fn get_captcha_image(html: &str) -> Option<String> {
-    let doc = Html::parse_document(html);
+pub fn get_captcha_image(doc: &Html) -> Option<String> {
     let img_sel = Selector::parse("img").unwrap();
 
     for img in doc.select(&img_sel) {
@@ -77,6 +76,13 @@ pub fn get_captcha_image(html: &str) -> Option<String> {
         }
     }
     None
+}
+
+pub fn get_cloudflare_challenge(doc: &Html) -> Option<String> {
+    let sel = Selector::parse("div.cf-turnstile").unwrap();
+    let elm = doc.select(&sel).next()?;
+    let data = elm.value().attr("data-sitekey")?;
+    Some(data.to_string())
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -90,25 +96,37 @@ pub enum ExtendError {
 #[derive(Debug)]
 pub struct Captcha {
     pub form: Form,
-    pub src: String,
+    pub image: Option<String>,
+    pub cloudflare: Option<String>,
+    pub url: Url,
 }
 
 impl Captcha {
+    pub fn has_image(&self) -> bool {
+        self.image.is_some()
+    }
+
     pub fn base64_image(&self) -> Option<String> {
+        let image = self.image.as_ref()?;
         let split = ";base64,";
-        if let Some(pos) = self.src.find(split) {
-            Some(self.src[pos + split.len()..].to_string())
+        if let Some(pos) = image.find(split) {
+            Some(image[pos + split.len()..].to_string())
         } else {
             None
         }
     }
 
     pub fn mime_type(&self) -> Option<String> {
-        if let Some(pos) = self.src.find(';') {
-            Some(self.src[..pos].replace("data:", ""))
+        let image = self.image.as_ref()?;
+        if let Some(pos) = image.find(';') {
+            Some(image[..pos].replace("data:", ""))
         } else {
             None
         }
+    }
+
+    pub fn cloudflare_challenge(&self) -> Option<&str> {
+        self.cloudflare.as_deref()
     }
 }
 
@@ -182,13 +200,16 @@ impl Client {
         if text.contains("画像認証") {
             let forms = extract_forms(&text, Some(&url));
             for form in forms {
+                let html = Html::parse_document(&text);
+                let image = get_captcha_image(&html);
+                let cloudflare = get_cloudflare_challenge(&html);
                 if form.action.as_ref().map_or(false, |a| a.contains("/do")) {
-                    if let Some(image) = get_captcha_image(&text) {
-                        return Ok(ExtendResponse::CaptchaRequired(Captcha {
-                            form,
-                            src: image,
-                        }));
-                    }
+                    return Ok(ExtendResponse::CaptchaRequired(Captcha {
+                        form,
+                        image,
+                        cloudflare,
+                        url,
+                    }));
                 }
             }
             return Err(ExtendError::ParseError(
@@ -202,27 +223,33 @@ impl Client {
     pub async fn submit_captcha(
         &self,
         captcha: &Captcha,
-        code: i32,
+        code: Option<i32>,
+        turnstile_response: Option<String>,
     ) -> ExtendResult<CaptchaResponse> {
         let form = &captcha.form;
         let mut params = std::collections::HashMap::new();
         for field in &form.fields {
             params.insert(field.name.clone(), field.value.clone().unwrap_or_default());
         }
-        if let Some(field) = params.get_mut("auth_code") {
-            *field = code.to_string();
-        } else {
-            'f: {
-                for (name, value) in &mut params {
-                    if name.contains("code") || name.contains("auth") {
-                        *value = code.to_string();
-                        break 'f;
+        if let Some(code) = code {
+            if let Some(field) = params.get_mut("auth_code") {
+                *field = code.to_string();
+            } else {
+                'f: {
+                    for (name, value) in &mut params {
+                        if name.contains("code") || name.contains("auth") {
+                            *value = code.to_string();
+                            break 'f;
+                        }
+                        return Err(ExtendError::ParseError(
+                            "Captcha code field not found in form",
+                        ));
                     }
-                    return Err(ExtendError::ParseError(
-                        "Captcha code field not found in form",
-                    ));
                 }
             }
+        }
+        if let Some(turnstile) = turnstile_response {
+            params.insert("cf-turnstile-response".to_string(), turnstile);
         }
 
         let res = self
@@ -234,6 +261,10 @@ impl Client {
             .error_for_status()?;
 
         let text = res.text().await?;
+
+        if text.contains("入力された認証コードが正しくありません") {
+            return Err(ExtendError::ParseError("Invalid captcha code"));
+        }
 
         let extend_unavailable = ["以降にお試し", "継続される場合は", "利用期限の1日前"];
         if extend_unavailable.iter().any(|s| text.contains(s)) {
