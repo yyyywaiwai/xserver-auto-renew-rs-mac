@@ -1,6 +1,7 @@
 use crate::{
     data::{self, remove_all},
     logger,
+    task::is_auto_enabled,
 };
 
 pub fn show_status() {
@@ -15,11 +16,7 @@ pub fn show_status() {
     if let Some(ua) = data::value::get_ua() {
         println!("User-Agent: {}", ua);
     }
-    let timer_enabled = std::process::Command::new("systemctl")
-        .args(["--user", "is-enabled", "xrenew.timer"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+    let timer_enabled = is_auto_enabled();
     println!(
         "Auto update: {}",
         if timer_enabled { "enabled" } else { "disabled" }

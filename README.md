@@ -18,17 +18,41 @@
 
 ## 🖥️ 動作環境
 
+### Linux
 - **OS**: Linux (x86_64 / arm64)
 - **必須コンポーネント**: `systemd`
+
+### macOS
+- **OS**: macOS (x86_64 / arm64)
+- **必須コンポーネント**: Rust/Cargo (for building from source)
 
 ---
 
 ## 🚀 インストール
 
+### Linux
+
 以下のコマンドを 1 行実行するだけで、最新バージョンが自動でインストールされます。
 
 ```bash
 curl -sSf https://raw.githubusercontent.com/h-sumiya/xserver-auto-renew-rs/main/install.sh | bash
+```
+
+### macOS
+
+macOS では、以下の手順でソースからビルドしてインストールします。
+
+1. Rust がインストールされていない場合、先にインストール:
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+```
+
+2. リポジトリをクローンしてインストール:
+```bash
+git clone https://github.com/h-sumiya/xserver-auto-renew-rs.git
+cd xserver-auto-renew-rs
+./install.sh
 ```
 
 ---
@@ -55,6 +79,8 @@ xrenew login
 ```bash
 xrenew enable
 ```
+
+**注意**: Linux では systemd、macOS では launchd を使用して自動実行を管理します。
 
 ### 3\. (オプション) Discord 通知設定
 

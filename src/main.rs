@@ -49,15 +49,12 @@ impl std::error::Error for ExtendError {}
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
-    if !matches!(cli.command, Commands::Refresh) {
-        initialize_db();
-    }
+    initialize_db();
     match cli.command {
         Commands::Login => login_flow().await,
         Commands::Extend { auto } => extend_flow(auto).await,
         Commands::Status => {
             show_status();
-            return;
         }
         Commands::Enable => enable_auto(),
         Commands::Disable => disable_auto(),

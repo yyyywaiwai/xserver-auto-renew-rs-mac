@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.xrenew.timer</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>{{EXEC_PATH}} update --auto && {{EXEC_PATH}} extend --auto</string>
+    </array>
+    
+    <key>StartInterval</key>
+    <integer>43200</integer>
+    
+    <key>RunAtLoad</key>
+    <false/>
+    
+    <key>StandardOutPath</key>
+    <string>{{LOG_PATH}}/xrenew.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>{{LOG_PATH}}/xrenew.error.log</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:{{USER_BIN_PATH}}</string>
+    </dict>
+</dict>
+</plist>
