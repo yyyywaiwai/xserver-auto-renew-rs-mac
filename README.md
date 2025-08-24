@@ -50,7 +50,7 @@ source $HOME/.cargo/env
 
 2. リポジトリをクローンしてインストール:
 ```bash
-git clone https://github.com/yyyywaiwai/xserver-auto-renew-rs.git
+git clone https://github.com/yyyywaiwai/xserver-auto-renew-rs-mac.git
 cd xserver-auto-renew-rs
 ./install.sh
 ```
