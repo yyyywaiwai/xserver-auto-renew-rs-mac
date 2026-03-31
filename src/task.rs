@@ -2,6 +2,21 @@ use crate::data::value::get_account;
 use rand::Rng;
 use std::path::Path;
 
+fn launchctl_domain_target() -> Option<String> {
+    let output = std::process::Command::new("id").arg("-u").output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let uid = String::from_utf8(output.stdout).ok()?;
+    let uid = uid.trim();
+    if uid.is_empty() {
+        None
+    } else {
+        Some(format!("gui/{}", uid))
+    }
+}
+
 pub fn enable_auto() {
     {
         if get_account().is_none() {
@@ -14,7 +29,7 @@ pub fn enable_auto() {
 
 fn _enable_auto() {
     let exe = std::env::current_exe().expect("get exe path");
-    
+
     if cfg!(target_os = "macos") {
         _enable_auto_macos(&exe);
     } else if cfg!(target_os = "linux") {
@@ -54,28 +69,33 @@ fn _enable_auto_macos(exe: &Path) {
     let home_dir = std::env::var("HOME").expect("HOME environment variable not set");
     let log_dir = format!("{}/.local/share/xrenew", home_dir);
     let user_bin_path = format!("{}/.local/bin", home_dir);
-    
+
     std::fs::create_dir_all(&log_dir).expect("create log dir");
-    
+
     let plist_content = include_str!("../launchd/com.xrenew.timer.plist")
         .replace("{{EXEC_PATH}}", exe.to_str().expect("exe path to str"))
         .replace("{{LOG_PATH}}", &log_dir)
         .replace("{{USER_BIN_PATH}}", &user_bin_path);
-    
+
     let launch_agents_dir = format!("{}/Library/LaunchAgents", home_dir);
     std::fs::create_dir_all(&launch_agents_dir).expect("create LaunchAgents dir");
-    
+
     let plist_path = format!("{}/com.xrenew.timer.plist", launch_agents_dir);
     std::fs::write(&plist_path, plist_content).expect("write plist file");
-    
-    let _ = std::process::Command::new("launchctl")
-        .args(["bootstrap", "gui/501", &plist_path])
-        .status();
-    
-    let _ = std::process::Command::new("launchctl")
-        .args(["enable", "gui/501/com.xrenew.timer"])
-        .status();
-    
+
+    if let Some(domain_target) = launchctl_domain_target() {
+        let _ = std::process::Command::new("launchctl")
+            .args(["bootstrap", &domain_target, &plist_path])
+            .status();
+
+        let service_target = format!("{}/com.xrenew.timer", domain_target);
+        let _ = std::process::Command::new("launchctl")
+            .args(["enable", &service_target])
+            .status();
+    } else {
+        println!("Warning: failed to determine current macOS user id for launchctl");
+    }
+
     println!("Automatic extension enabled (macOS)");
 }
 
@@ -108,15 +128,20 @@ fn _disable_auto_linux() {
 fn _disable_auto_macos() {
     let home_dir = std::env::var("HOME").expect("HOME environment variable not set");
     let plist_path = format!("{}/Library/LaunchAgents/com.xrenew.timer.plist", home_dir);
-    
-    let _ = std::process::Command::new("launchctl")
-        .args(["disable", "gui/501/com.xrenew.timer"])
-        .status();
-    
-    let _ = std::process::Command::new("launchctl")
-        .args(["bootout", "gui/501", &plist_path])
-        .status();
-    
+
+    if let Some(domain_target) = launchctl_domain_target() {
+        let service_target = format!("{}/com.xrenew.timer", domain_target);
+        let _ = std::process::Command::new("launchctl")
+            .args(["disable", &service_target])
+            .status();
+
+        let _ = std::process::Command::new("launchctl")
+            .args(["bootout", &domain_target, &plist_path])
+            .status();
+    } else {
+        println!("Warning: failed to determine current macOS user id for launchctl");
+    }
+
     std::fs::remove_file(&plist_path).ok();
     println!("Automatic extension disabled (macOS)");
 }

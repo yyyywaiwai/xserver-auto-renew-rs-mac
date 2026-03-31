@@ -260,7 +260,9 @@ impl Client {
             .await?
             .error_for_status()?;
 
+        let url = res.url().clone();
         let text = res.text().await?;
+        let html = Html::parse_document(&text);
 
         if text.contains("入力された認証コードが正しくありません") {
             return Err(ExtendError::ParseError("Invalid captcha code"));
@@ -284,6 +286,19 @@ impl Client {
             return Ok(CaptchaResponse::Success(
                 get_message(&text).unwrap_or_else(|| "Extend successful".to_string()),
             ));
+        }
+
+        if text.contains("画像認証")
+            || get_cloudflare_challenge(&html).is_some()
+            || get_captcha_image(&html).is_some()
+        {
+            return Ok(CaptchaResponse::Failure(get_message(&text).unwrap_or_else(
+                || format!("Captcha challenge remained after submission: {}", url),
+            )));
+        }
+
+        if let Some(msg) = get_message(&text) {
+            return Ok(CaptchaResponse::Failure(msg));
         }
 
         return Err(ExtendError::ParseError("Captcha submission failed"));
