@@ -9,7 +9,7 @@
     <array>
         <string>/bin/bash</string>
         <string>-c</string>
-        <string>{{EXEC_PATH}} update --auto && {{EXEC_PATH}} extend --auto</string>
+        <string>{{EXEC_PATH}} update --auto &amp;&amp; {{EXEC_PATH}} extend --auto</string>
     </array>
     
     <key>StartInterval</key>
