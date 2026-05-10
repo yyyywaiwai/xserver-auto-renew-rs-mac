@@ -151,20 +151,27 @@ fn _enable_auto_macos(exe: &Path) {
     }
 
     let domain_target = launchctl_domain_target(&user);
-    let service_target = format!("{}/com.xrenew.timer", domain_target);
     let plist_path_string = plist_path.to_string_lossy().to_string();
 
-    let _ = run_launchctl(&["bootout", &domain_target, &plist_path_string]);
-    if !run_launchctl(&["bootstrap", &domain_target, &plist_path_string]) {
-        println!("Could not enable service: launchctl bootstrap failed");
-        return;
-    }
-    if !run_launchctl(&["enable", &service_target]) {
-        println!("Could not enable service: launchctl enable failed");
-        return;
-    }
+    // Try to bootstrap the service
+    let bootstrap_success = if std::env::var("SUDO_USER").is_ok() {
+        // In sudo environment, don't try to bootstrap - the user needs to do it
+        false
+    } else {
+        run_launchctl(&["bootstrap", &domain_target, &plist_path_string])
+    };
 
-    println!("Automatic extension enabled (macOS)");
+    if bootstrap_success {
+        println!("Automatic extension enabled (macOS)");
+    } else {
+        println!("Service plist installed at:");
+        println!("  {}", plist_path.display());
+        println!("");
+        println!("Please run the following command to enable the service:");
+        println!("  launchctl bootstrap {} {}", domain_target, plist_path_string);
+        println!("");
+        println!("Or log out and log back in for launchd to load it automatically.");
+    }
 }
 
 pub fn disable_auto() {
@@ -203,15 +210,18 @@ fn _disable_auto_macos() {
         .join("Library/LaunchAgents/com.xrenew.timer.plist");
 
     let domain_target = launchctl_domain_target(&user);
-    let service_target = format!("{}/com.xrenew.timer", domain_target);
-    let _ = run_launchctl(&["disable", &service_target]);
+    let plist_path_string = plist_path.to_string_lossy().to_string();
 
-    if let Some(plist_path) = plist_path.to_str() {
-        let _ = run_launchctl(&["bootout", &domain_target, plist_path]);
-    } else {
-        println!("Warning: failed to convert plist path for launchctl");
+    // In sudo environment, just remove the plist file
+    if std::env::var("SUDO_USER").is_ok() {
+        std::fs::remove_file(&plist_path).ok();
+        println!("Service plist removed. You may need to run:");
+        println!("  launchctl bootout {} {}", domain_target, plist_path_string);
+        println!("Automatic extension disabled (macOS)");
+        return;
     }
 
+    let _ = run_launchctl(&["bootout", &domain_target, &plist_path_string]);
     std::fs::remove_file(&plist_path).ok();
     println!("Automatic extension disabled (macOS)");
 }
